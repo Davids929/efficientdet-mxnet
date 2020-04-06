@@ -7,8 +7,10 @@ MXNet implementation of EfficientDet object detection as described in [Efficient
 * gluoncv 0.6.0
 
 ## Dataset
-run [COCO2017.sh](https://github.com/toandaominh1997/EfficientDet.Pytorch/blob/master/datasets/scripts/COCO2017.sh)
-
+- download coco2017 
+  python [mscoco.py](https://github.com/dmlc/gluon-cv/blob/master/scripts/datasets/mscoco.py)
+- download voc
+  python [pascal_voc.py](https://github.com/dmlc/gluon-cv/blob/master/scripts/datasets/pascal_voc.py)
 ## Training EfficientDet
 - COCO Dataset:
 ```
