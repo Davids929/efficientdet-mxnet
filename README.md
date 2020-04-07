@@ -11,9 +11,15 @@ MXNet implementation of EfficientDet object detection as described in [Efficient
  to download coco2017 dataset.
 - run [pascal_voc.py](https://github.com/dmlc/gluon-cv/blob/master/scripts/datasets/pascal_voc.py) 
  to download voc dataset.
- 
+
 ## Training EfficientDet
 - COCO Dataset:
 ```
  sh train_efficientdet_coco.sh
+```
+
+## Testing EfficientDet
+- COCO Dataset
+```
+python demo_efficientdet.py
 ```
