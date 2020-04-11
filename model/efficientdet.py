@@ -291,7 +291,7 @@ def efficientdet_params(model_name):
         'efficientdet-b6': ['efficientnet-b6', 1280, 384, 8, 5],
     }
     if model_name not in list(params_dict.keys()):
-        raise NotImplementedError('%s is not exists.'%model_name)
+        raise NotImplementedError('%s is not in model zoo.'%model_name)
 
     return params_dict[model_name]
 
@@ -306,7 +306,10 @@ def get_efficientdet(model_name, classes,
     backbone_name, base_size, fpn_c, num_fpn, box_cls_repeat = model_config
     base_net     = get_efficientnet(backbone_name)
     if pretrained_base:
-        base_net.load_parameters(os.path.join(root, backbone_name + '.params'), ctx=ctx)
+        base_params_path = os.path.join(root, backbone_name + '.params')
+        if not os.path.exists(base_params_path):
+            raise NotImplementedError('Pretrained-base params is not exists.')
+        base_net.load_parameters(, ctx=ctx)
     
     stages = [base_net.features[:6], base_net.features[6:8], base_net.features[8:10]]
     
