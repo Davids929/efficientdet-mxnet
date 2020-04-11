@@ -306,7 +306,7 @@ def get_efficientdet(model_name, classes,
     backbone_name, base_size, fpn_c, num_fpn, box_cls_repeat = model_config
     base_net     = get_efficientnet(backbone_name)
     if pretrained_base:
-        base_net.load_parameters(os.path.join(root, backbone_name + 'params'), ctx=ctx)
+        base_net.load_parameters(os.path.join(root, backbone_name + '.params'), ctx=ctx)
     
     stages = [base_net.features[:6], base_net.features[6:8], base_net.features[8:10]]
     
