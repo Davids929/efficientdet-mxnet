@@ -78,7 +78,7 @@ def validate(net, val_data, ctx, eval_metric):
     eval_metric.reset()
     # set nms threshold and topk constraint
     net.set_nms(nms_thresh=0.45, nms_topk=400)
-    net.hybridize(static_alloc=True, static_shape=True)
+    net.hybridize()
     for batch in val_data:
         data = gluon.utils.split_and_load(batch[0], ctx_list=ctx, batch_axis=0, even_split=False)
         label = gluon.utils.split_and_load(batch[1], ctx_list=ctx, batch_axis=0, even_split=False)
@@ -147,7 +147,6 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
         smoothl1_metric.reset()
         tic = time.time()
         btic = time.time()
-        net.hybridize(static_alloc=True, static_shape=True)
 
         for i, batch in enumerate(train_data):
             data = gluon.utils.split_and_load(batch[0], ctx_list=ctx, batch_axis=0)
@@ -234,6 +233,7 @@ if __name__ == '__main__':
     else:
         net.initialize(init=mx.init.Xavier(), ctx=ctx)
         async_net.initialize(init=mx.init.Xavier(), ctx=ctx)
+    net.hybridize()
     
     train_dataset, val_dataset, eval_metric = get_dataset(args.dataset, args)
     batch_size =  args.batch_size

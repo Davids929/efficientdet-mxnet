@@ -19,7 +19,7 @@ class EfficientDetLoss(gluon.Block):
         self._rho = rho
         self._lambd = lambd
         self._min_hard_negatives = max(0, min_hard_negatives)
-        self.focal_loss = FocalLoss(size_average=False, num_class=num_classes)
+        self.focal_loss = FocalLoss(size_average=False, gamma=1.5, num_class=num_classes)
 
     def forward(self, cls_pred, box_pred, cls_target, box_target):
         

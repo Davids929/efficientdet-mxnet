@@ -18,6 +18,27 @@ bifpn_nodes_config = [
       {'step': 128, 'inputs_offsets': [4, 11]},
   ]
 
+class SeparableConvBlock(nn.HybridBlock):
+    def __init__(self, in_channels, out_channels, activation='relu', 
+                 norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
+        super(SeparableConvBlock, self).__init__(**kwargs)
+        with self.name_scope():
+            self.depthwise_conv = nn.Conv2D(in_channels, 3, strides=1, padding=1, groups=in_channels, use_bias=False)
+            self.pointwise_conv = nn.Conv2D(out_channels, 1, strides=1)
+            if norm_layer is not None:
+                self.norm = norm_layer(scale=True, **norm_kwargs)
+            else: 
+                self.norm = None
+            self.activation     = activation
+    def hybrid_forward(self, F, x):
+        x = self.depthwise_conv(x)
+        x = self.pointwise_conv(x)
+        if self.norm is not None:
+            x = self.norm(x)
+        if self.activation is not None:
+            x = F.Activation(x, self.activation)
+        return x
+
 class BiFPN(nn.HybridBlock):
     def __init__(self, channels, num_features=5, use_dw_conv=True, weight_method='fastattn', 
                  norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
@@ -30,15 +51,15 @@ class BiFPN(nn.HybridBlock):
             self.convs = nn.HybridSequential()
             self.weights = []
             for i in range(len(bifpn_nodes_config)):
-                block = nn.HybridSequential()
-                _add_conv(block, channels, kernel=3, stride=1, pad=1, 
-                          num_group=group, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
-                self.convs.add(block)
+                # block = nn.HybridSequential()
+                # _add_conv(block, channels, kernel=3, stride=1, pad=1, 
+                #           num_group=group, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
+                self.convs.add(SeparableConvBlock(channels, channels, norm_layer=norm_layer, norm_kwargs=norm_kwargs))
                 weight_size = len(bifpn_nodes_config[i]['inputs_offsets'])
                 weight_name = 'weights_%d'%i
                 att_weight = self.params.get(weight_name, shape=(weight_size), init=mx.init.One())
                 setattr(self, weight_name, att_weight)
-
+                
     def weight_sum(self, F, features, weight, types='attn'):
         features = F.stack(*features, axis=-1)
         if types=='attn':
@@ -72,18 +93,17 @@ class BiFPN(nn.HybridBlock):
         
 class OutputSubnet(nn.HybridBlock):
     def __init__(self, channels, num_layers, out_channels, 
-                 num_anchors, use_dw_conv=True, 
-                 norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
+                 num_anchors, norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(OutputSubnet, self).__init__(**kwargs)
         
-        group = channels if use_dw_conv else 1
         with self.name_scope():
             self.body = nn.HybridSequential()
             for i in range(num_layers):
-                _add_conv(self.body, channels, kernel=3, stride=1, pad=1, 
-                          num_group=group, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
+                # _add_conv(self.body, channels, kernel=3, stride=1, pad=1, 
+                #           num_group=group, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
+                self.body.add(SeparableConvBlock(channels, channels, norm_layer=norm_layer, norm_kwargs=norm_kwargs))
             output_channels = out_channels*num_anchors
-            self.output = nn.Conv2D(output_channels, 3, 1, 1, use_bias=False)
+            self.output =SeparableConvBlock(channels, output_channels, norm_layer=None, activation=None)
 
     def hybrid_forward(self, F, x):
         x = self.body(x)
@@ -291,7 +311,7 @@ def efficientdet_params(model_name):
         'efficientdet-b6': ['efficientnet-b6', 1280, 384, 8, 5],
     }
     if model_name not in list(params_dict.keys()):
-        raise NotImplementedError('%s is not in model zoo.'%model_name)
+        raise NotImplementedError('%s is not exists.'%model_name)
 
     return params_dict[model_name]
 
@@ -306,10 +326,7 @@ def get_efficientdet(model_name, classes,
     backbone_name, base_size, fpn_c, num_fpn, box_cls_repeat = model_config
     base_net     = get_efficientnet(backbone_name)
     if pretrained_base:
-        base_params_path = os.path.join(root, backbone_name + '.params')
-        if not os.path.exists(base_params_path):
-            raise NotImplementedError('Pretrained-base params is not exists.')
-        base_net.load_parameters(, ctx=ctx)
+        base_net.load_parameters(os.path.join(root, backbone_name + 'params'), ctx=ctx)
     
     stages = [base_net.features[:6], base_net.features[6:8], base_net.features[8:10]]
     
