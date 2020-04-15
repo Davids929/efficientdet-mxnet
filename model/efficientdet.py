@@ -3,7 +3,7 @@ import mxnet as mx
 import os
 from mxnet.gluon import nn
 from gluoncv.nn.coder import MultiPerClassDecoder, NormalizedBoxCenterDecoder
-from .efficientnet import _add_conv, get_efficientnet
+from .efficientnet import _add_conv, Activation, get_efficientnet
 from .anchor import AnchorGenerator
 
 
@@ -19,7 +19,7 @@ bifpn_nodes_config = [
   ]
 
 class SeparableConvBlock(nn.HybridBlock):
-    def __init__(self, in_channels, out_channels, activation='relu', 
+    def __init__(self, in_channels, out_channels, act_type='swish', 
                  norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(SeparableConvBlock, self).__init__(**kwargs)
         with self.name_scope():
@@ -29,32 +29,33 @@ class SeparableConvBlock(nn.HybridBlock):
                 self.norm = norm_layer(scale=True, **norm_kwargs)
             else: 
                 self.norm = None
-            self.activation     = activation
+            if act_type != None:
+                self.act = Activation(act_type)
+            else:
+                self.act = None
+                
     def hybrid_forward(self, F, x):
         x = self.depthwise_conv(x)
         x = self.pointwise_conv(x)
         if self.norm is not None:
             x = self.norm(x)
-        if self.activation is not None:
-            x = F.Activation(x, self.activation)
+        if self.act != None:
+            x = self.act(x)
         return x
 
 class BiFPN(nn.HybridBlock):
-    def __init__(self, channels, num_features=5, use_dw_conv=True, weight_method='fastattn', 
+    def __init__(self, channels, num_features=5, act_type='swish', weight_method='fastattn', 
                  norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(BiFPN, self).__init__(**kwargs)
         self.num_features = num_features
         self.weight_method = weight_method
-        group = channels if use_dw_conv else 1
         assert len(bifpn_nodes_config) == num_features*2 - 2
         with self.name_scope():
             self.convs = nn.HybridSequential()
             self.weights = []
             for i in range(len(bifpn_nodes_config)):
-                # block = nn.HybridSequential()
-                # _add_conv(block, channels, kernel=3, stride=1, pad=1, 
-                #           num_group=group, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
-                self.convs.add(SeparableConvBlock(channels, channels, norm_layer=norm_layer, norm_kwargs=norm_kwargs))
+                self.convs.add(SeparableConvBlock(channels, channels, act_type=act_type,
+                               norm_layer=norm_layer, norm_kwargs=norm_kwargs))
                 weight_size = len(bifpn_nodes_config[i]['inputs_offsets'])
                 weight_name = 'weights_%d'%i
                 att_weight = self.params.get(weight_name, shape=(weight_size), init=mx.init.One())
@@ -92,18 +93,17 @@ class BiFPN(nn.HybridBlock):
         return output
         
 class OutputSubnet(nn.HybridBlock):
-    def __init__(self, channels, num_layers, out_channels, 
-                 num_anchors, norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
+    def __init__(self, channels, num_layers, out_channels, num_anchors, 
+                 act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(OutputSubnet, self).__init__(**kwargs)
         
         with self.name_scope():
             self.body = nn.HybridSequential()
             for i in range(num_layers):
-                # _add_conv(self.body, channels, kernel=3, stride=1, pad=1, 
-                #           num_group=group, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
-                self.body.add(SeparableConvBlock(channels, channels, norm_layer=norm_layer, norm_kwargs=norm_kwargs))
+                self.body.add(SeparableConvBlock(channels, channels, act_type=act_type,
+                              norm_layer=norm_layer, norm_kwargs=norm_kwargs))
             output_channels = out_channels*num_anchors
-            self.output =SeparableConvBlock(channels, output_channels, norm_layer=None, activation=None)
+            self.output =SeparableConvBlock(channels, output_channels, norm_layer=None, act_type=None)
 
     def hybrid_forward(self, F, x):
         x = self.body(x)
@@ -159,7 +159,7 @@ class EfficientDet(nn.HybridBlock):
     """
 
     def __init__(self, base_size, stages, ratios, scales, steps, classes, 
-                 fpn_channel=64, fpn_repeat=3, box_cls_repeat=3, 
+                 fpn_channel=64, fpn_repeat=3, box_cls_repeat=3, act_type='swish', 
                  stds=(0.1, 0.1, 0.2, 0.2), nms_thresh=0.45, nms_topk=400,
                  post_nms=100, anchor_alloc_size=128, ctx=mx.cpu(),
                  norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
@@ -185,18 +185,19 @@ class EfficientDet(nn.HybridBlock):
                 self.stages.add(stage)
             for i in range(self.num_stages):
                 block = nn.HybridSequential()
-                _add_conv(block, channels=fpn_channel, norm_layer=norm_layer, norm_kwargs=norm_kwargs)
+                _add_conv(block, channels=fpn_channel, act_type=act_type, 
+                          norm_layer=norm_layer, norm_kwargs=norm_kwargs)
                 self.proj_convs.add(block)
                 anchor_generator = AnchorGenerator(i, im_size, ratios, scales, steps[i], (asz, asz))
                 self.anchor_generators.add(anchor_generator)
                 asz = max(asz//2, 16)
 
             for i in range(fpn_repeat):
-                self.fpns.add(BiFPN(fpn_channel, num_features=self.num_stages, use_dw_conv=True, 
+                self.fpns.add(BiFPN(fpn_channel, num_features=self.num_stages, act_type=act_type, 
                                     norm_layer=norm_layer, norm_kwargs=norm_kwargs))
-            self.cls_net = OutputSubnet(fpn_channel, box_cls_repeat, self.num_classes+1, num_anchors, 
+            self.cls_net = OutputSubnet(fpn_channel, box_cls_repeat, self.num_classes+1, num_anchors, act_type=act_type,
                                         norm_layer=norm_layer, norm_kwargs=norm_kwargs, prefix='class_net')
-            self.box_net = OutputSubnet(fpn_channel, box_cls_repeat, 4, num_anchors, 
+            self.box_net = OutputSubnet(fpn_channel, box_cls_repeat, 4, num_anchors, act_type=act_type,
                                         norm_layer=norm_layer, norm_kwargs=norm_kwargs, prefix='box_net')
             self.bbox_decoder = NormalizedBoxCenterDecoder(stds)
             self.cls_decoder = MultiPerClassDecoder(self.num_classes+1, thresh=0.01)

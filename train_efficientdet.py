@@ -224,7 +224,8 @@ if __name__ == '__main__':
         async_net = get_efficientdet(args.network, classes, pretrained_base=False)  # used by cpu worker
         
     else:
-        net = get_efficientdet(args.network, classes, pretrained_base=False, norm_layer=gluon.nn.BatchNorm)
+        net = get_efficientdet(args.network, classes, act_type=args.act_type, 
+                               pretrained_base=False, norm_layer=gluon.nn.BatchNorm)
         async_net = net
 
     if args.resume.strip():
@@ -234,7 +235,7 @@ if __name__ == '__main__':
         net.initialize(init=mx.init.Xavier(), ctx=ctx)
         async_net.initialize(init=mx.init.Xavier(), ctx=ctx)
     net.hybridize()
-    
+
     train_dataset, val_dataset, eval_metric = get_dataset(args.dataset, args)
     batch_size =  args.batch_size
     train_data, val_data = get_dataloader(

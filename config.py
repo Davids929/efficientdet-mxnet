@@ -7,6 +7,8 @@ def parse_args():
                         help="The name of detect network.")
     parser.add_argument('--data-shape', type=int, default=640,
                         help="Input data shape, use 300, 512.")
+    parser.add_argument('--act-type', type=str, default='swish',
+                        help="Activation function.")
     parser.add_argument('--batch-size', type=int, default=16,
                         help='Training mini-batch size')
     parser.add_argument('--dataset', type=str, default='coco',

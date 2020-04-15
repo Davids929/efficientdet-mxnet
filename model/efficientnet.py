@@ -53,11 +53,13 @@ class _SE(nn.HybridBlock):
         return F.broadcast_mul(x, out)
 
 def _add_conv(out, channels=1, kernel=1, stride=1, pad=0,
-              num_group=1, active=True, relu6=False, norm_layer=nn.BatchNorm, norm_kwargs=None):
+              num_group=1, active=True, act_type='swish', 
+              norm_layer=nn.BatchNorm, norm_kwargs=None):
+
     out.add(nn.Conv2D(channels, kernel, stride, pad, groups=num_group, use_bias=False))
     out.add(norm_layer(scale=True, **norm_kwargs))
     if active:
-        out.add(ReLU6() if relu6 else nn.Activation('relu'))
+        out.add(Activation(act_type))
 
 class LinearBottleneck(nn.HybridBlock):
     r"""LinearBottleneck used in MobileNetV2 model from the
@@ -84,7 +86,7 @@ class LinearBottleneck(nn.HybridBlock):
     """
 
     def __init__(self, in_channels, channels, t, ksize, stride, use_se=True, 
-                 norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
+                 act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(LinearBottleneck, self).__init__(**kwargs)
         self.use_shortcut = stride == 1 and in_channels == channels
         pad = ksize//2
@@ -93,7 +95,7 @@ class LinearBottleneck(nn.HybridBlock):
             if t != 1:
                 _add_conv(self.out,
                           in_channels * t,
-                          relu6=True,
+                          act_type=act_type,
                           norm_layer=norm_layer, norm_kwargs=norm_kwargs)
             _add_conv(self.out,
                       in_channels * t,
@@ -101,14 +103,13 @@ class LinearBottleneck(nn.HybridBlock):
                       stride=stride,
                       pad=pad,
                       num_group=in_channels * t,
-                      relu6=True,
+                      act_type=act_type,
                       norm_layer=norm_layer, norm_kwargs=norm_kwargs)
             if use_se:
                 self.out.add(_SE(in_channels * t))
             _add_conv(self.out,
                       channels,
                       active=False,
-                      relu6=True,
                       norm_layer=norm_layer, norm_kwargs=norm_kwargs)
 
     def hybrid_forward(self, F, x):
@@ -126,7 +127,7 @@ class EfficientNet(nn.HybridBlock):
 
     """
     def __init__(self, w_multiplier=1.0, d_multiplier=1.0, dropout=1.0, classes=1000, 
-                 norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
+                 act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(EfficientNet, self).__init__(**kwargs)
         with self.name_scope():
             in_channels_group = [make_divisible(x * w_multiplier) for x in [32, 16, 24, 40, 80, 112, 192]]
@@ -138,7 +139,7 @@ class EfficientNet(nn.HybridBlock):
             norm_kwargs = {} if norm_kwargs is None else norm_kwargs
             self.features = nn.HybridSequential()
             _add_conv(self.features, make_divisible(32 * w_multiplier), kernel=3,
-                      stride=2, pad=1, relu6=True,
+                      stride=2, pad=1, act_type=act_type,
                       norm_layer=norm_layer, norm_kwargs=norm_kwargs)
 
             for idx, (in_c, c, t, k, s, n) in enumerate(zip(in_channels_group, channels_group, 
@@ -150,6 +151,7 @@ class EfficientNet(nn.HybridBlock):
                                                t=t,
                                                ksize=k,
                                                stride=s,
+                                               act_type=act_type,
                                                norm_layer=norm_layer,
                                                norm_kwargs=norm_kwargs))
                     in_c, s = c, 1
@@ -160,7 +162,6 @@ class EfficientNet(nn.HybridBlock):
             with self.head.name_scope():
                 _add_conv(self.head,
                           last_channels,
-                          relu6=True,
                           active=False, 
                           norm_layer=norm_layer, norm_kwargs=norm_kwargs)
 
