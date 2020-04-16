@@ -113,8 +113,6 @@ class LinearBottleneck(nn.HybridBlock):
                       norm_layer=norm_layer, norm_kwargs=norm_kwargs)
 
     def hybrid_forward(self, F, x):
-        # import pdb
-        # pdb.set_trace()
         out = self.out(x)
         if self.use_shortcut:
             out = F.elemwise_add(out, x)
@@ -127,7 +125,7 @@ class EfficientNet(nn.HybridBlock):
 
     """
     def __init__(self, w_multiplier=1.0, d_multiplier=1.0, dropout=1.0, classes=1000, 
-                 act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
+                 use_se=True, act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(EfficientNet, self).__init__(**kwargs)
         with self.name_scope():
             in_channels_group = [make_divisible(x * w_multiplier) for x in [32, 16, 24, 40, 80, 112, 192]]
@@ -151,6 +149,7 @@ class EfficientNet(nn.HybridBlock):
                                                t=t,
                                                ksize=k,
                                                stride=s,
+                                               use_se=use_se,
                                                act_type=act_type,
                                                norm_layer=norm_layer,
                                                norm_kwargs=norm_kwargs))
