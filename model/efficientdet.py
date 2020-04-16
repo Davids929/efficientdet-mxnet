@@ -72,7 +72,7 @@ class BiFPN(nn.HybridBlock):
             edge_weight = F.broadcast_div(edge_weight, sum_weight)
             features = F.dot(features, edge_weight)
         else:
-            features = mx.nd.sum(features, axis=-1)
+            features = F.sum(features, axis=-1)
         return features
 
     def hybrid_forward(self, F, *features, **weights):
