@@ -33,7 +33,7 @@ class SeparableConvBlock(nn.HybridBlock):
                 self.act = Activation(act_type)
             else:
                 self.act = None
-                
+
     def hybrid_forward(self, F, x):
         x = self.depthwise_conv(x)
         x = self.pointwise_conv(x)
@@ -302,14 +302,15 @@ class EfficientDet(nn.HybridBlock):
 def efficientdet_params(model_name):
     """ Map EfficientNet model name to parameter coefficients. """
     params_dict = {
-        # Coefficients:  backbone, input_size, fpn_channel, fpn_repeat, box_cls_repeat
-        'efficientdet-b0': ['efficientnet-b0', 512,  64,  3, 3],
-        'efficientdet-b1': ['efficientnet-b1', 640,  88,  4, 3],
-        'efficientdet-b2': ['efficientnet-b2', 768,  112, 5, 3],
-        'efficientdet-b3': ['efficientnet-b3', 896,  160, 5, 3],
-        'efficientdet-b4': ['efficientnet-b4', 1024, 224, 7, 4],
-        'efficientdet-b5': ['efficientnet-b5', 1280, 288, 7, 4],
-        'efficientdet-b6': ['efficientnet-b6', 1280, 384, 8, 5],
+        # Coefficients:  backbone, input_size, fpn_channel, fpn_repeat, box_cls_repeat, anchor_scales
+        'efficientdet-b0': ['efficientnet-b0', 512,  64,  3, 3, 4.0],
+        'efficientdet-b1': ['efficientnet-b1', 640,  88,  4, 3, 4.0],
+        'efficientdet-b2': ['efficientnet-b2', 768,  112, 5, 3, 4.0],
+        'efficientdet-b3': ['efficientnet-b3', 896,  160, 5, 3, 4.0],
+        'efficientdet-b4': ['efficientnet-b4', 1024, 224, 7, 4, 4.0],
+        'efficientdet-b5': ['efficientnet-b5', 1280, 288, 7, 4, 4.0],
+        'efficientdet-b6': ['efficientnet-b6', 1280, 384, 8, 5, 4.0],
+        'efficientdet-b7': ['efficientnet-b7', 1536, 384, 8, 5, 5.0]
     }
     if model_name not in list(params_dict.keys()):
         raise NotImplementedError('%s is not exists.'%model_name)
@@ -320,11 +321,12 @@ def get_efficientdet(model_name, classes,
                      pretrained=False, pretrained_base=False, ctx=mx.cpu(),
                      root=os.path.join('~', '.mxnet', 'models'), **kwargs):
     
-    ratios  = [(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]
-    scales  = [4.0*2**0, 4.0*2**(1/3),  4.0*2**(2/3)]
-    steps   = [8, 16, 32, 64, 128]
     model_config = efficientdet_params(model_name)
-    backbone_name, base_size, fpn_c, num_fpn, box_cls_repeat = model_config
+    backbone_name, base_size, fpn_c, num_fpn, box_cls_repeat, anchor_scales = model_config
+    ratios  = [(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]
+    scales  = [anchor_scales*i for i in [2**0, 2**(1/3), 2**(2/3)]]
+    steps   = [8, 16, 32, 64, 128]
+    
     base_net     = get_efficientnet(backbone_name)
     if pretrained_base:
         base_net.load_parameters(os.path.join(root, backbone_name + 'params'), ctx=ctx)
