@@ -218,10 +218,13 @@ if __name__ == '__main__':
         raise NotImplementedError('Dataset: {} not implemented.'.format(args.dataset))
 
     if args.syncbn and len(ctx) > 1:
-        net = get_efficientdet(args.network, classes, pretrained_base=False, 
+        net = get_efficientdet(args.network, classes, 
+                               pretrained_base=False, act_type=args.act_type,
                                norm_layer=gluon.contrib.nn.SyncBatchNorm,
                                norm_kwargs={'num_devices': len(ctx)})
-        async_net = get_efficientdet(args.network, classes, pretrained_base=False)  # used by cpu worker
+        async_net = get_efficientdet(args.network, classes, 
+                                     act_type=args.act_type, 
+                                     pretrained_base=False)  # used by cpu worker
         
     else:
         net = get_efficientdet(args.network, classes, act_type=args.act_type, 
