@@ -336,7 +336,7 @@ def get_efficientdet(model_name, classes, act_type='swish',
     stages = [base_net.features[:6], base_net.features[6:8], base_net.features[8:10]]
     
     net = EfficientDet(base_size, stages, ratios, scales, steps, classes, 
-                       fpn_channel=fpn_c, fpn_repeat=num_fpn, 
+                       fpn_channel=fpn_c, fpn_repeat=num_fpn, act_type=act_type,
                        box_cls_repeat=box_cls_repeat, **kwargs)
     if pretrained:
         net.load_parameters(os.path.join(root, model_name + 'params'), ctx=ctx)
