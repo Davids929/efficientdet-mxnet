@@ -45,6 +45,8 @@ def get_dataset(dataset, args):
             args.val_interval = 10
     else:
         raise NotImplementedError('Dataset: {} not implemented.'.format(dataset))
+    if args.num_samples < 0:
+        args.num_samples = len(train_dataset)
     return train_dataset, val_dataset, val_metric
 
 def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_workers, ctx):
@@ -107,17 +109,28 @@ def validate(net, val_data, ctx, eval_metric):
 def train(net, train_data, val_data, eval_metric, ctx, args):
     """Training pipeline"""
     net.collect_params().reset_ctx(ctx)
+    f args.lr_decay_period > 0:
+        lr_decay_epoch = list(range(args.lr_decay_period, args.epochs, args.lr_decay_period))
+    else:
+        lr_decay_epoch = [int(i) for i in args.lr_decay_epoch.split(',')]
+    lr_decay_epoch = [e - args.warmup_epochs for e in lr_decay_epoch]
+    num_batches = args.num_samples // args.batch_size
+    lr_scheduler = LRSequential([
+        LRScheduler('linear', base_lr=0, target_lr=args.lr,
+                    nepochs=args.warmup_epochs, iters_per_epoch=num_batches),
+        LRScheduler(args.lr_mode, base_lr=args.lr,
+                    nepochs=args.epochs - args.warmup_epochs,
+                    iters_per_epoch=num_batches,
+                    step_epoch=lr_decay_epoch,
+                    step_factor=args.lr_decay, power=2),
+    ])
     trainer = gluon.Trainer(
                 net.collect_params(), 'sgd',
-                {'learning_rate': args.lr, 'wd': args.wd, 'momentum': args.momentum},
+                {'lr_scheduler': lr_scheduler, 'wd': args.wd, 'momentum': args.momentum},
                 update_on_kvstore=(False if args.amp else None))
 
     if args.amp:
         amp.init_trainer(trainer)
-
-    # lr decay policy
-    lr_decay = float(args.lr_decay)
-    lr_steps = sorted([float(ls) for ls in args.lr_decay_epoch.split(',') if ls.strip()])
 
     cls_box_loss = EfficientDetLoss(len(classes)+1, rho=0.1, lambd=50.0)
     ce_metric    = mx.metric.Loss('FocalLoss')
@@ -138,11 +151,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
     best_map = [0]
 
     for epoch in range(args.start_epoch, args.epochs):
-        while lr_steps and epoch >= lr_steps[0]:
-            new_lr = trainer.learning_rate * lr_decay
-            lr_steps.pop(0)
-            trainer.set_learning_rate(new_lr)
-            logger.info("[Epoch {}] Set learning rate to {}".format(epoch, new_lr))
+        logger.info("[Epoch {}] Set learning rate to {}".format(epoch, trainer.learning_rate)))
         ce_metric.reset()
         smoothl1_metric.reset()
         tic = time.time()

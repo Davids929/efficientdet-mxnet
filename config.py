@@ -22,6 +22,8 @@ def parse_args():
                         help='Training with GPUs, you can specify 1,3 for example.')
     parser.add_argument('--epochs', type=int, default=240,
                         help='Training epochs.')
+    parser.add_argument('--num-samples', type=int, default=-1,
+                        help='Training images. Use -1 to automatically get the number.')
     parser.add_argument('--resume', type=str, default='',
                         help='Resume from previously saved parameters if not None. '
                         'For example, you can resume from ./ssd_xxx_0123.params')
@@ -30,10 +32,18 @@ def parse_args():
                         'You can specify it to 100 for example to start from 100 epoch.')
     parser.add_argument('--lr', type=float, default=0.01,
                         help='Learning rate, default is 0.001')
+    parser.add_argument('--lr-mode', type=str, default='step',
+                        help='learning rate scheduler mode. options are step, poly and cosine.')
     parser.add_argument('--lr-decay', type=float, default=0.1,
                         help='decay rate of learning rate. default is 0.1.')
-    parser.add_argument('--lr-decay-epoch', type=str, default='160,200',
-                        help='epochs at which learning rate decays. default is 160,200.')
+    parser.add_argument('--lr-decay-period', type=int, default=0,
+                        help='interval for periodic learning rate decays. default is 0 to disable.')
+    parser.add_argument('--lr-decay-epoch', type=str, default='160,180',
+                        help='epochs at which learning rate decays. default is 160,180.')
+    parser.add_argument('--warmup-lr', type=float, default=0.0,
+                        help='starting warmup learning rate. default is 0.0.')
+    parser.add_argument('--warmup-epochs', type=int, default=2,
+                        help='number of warmup epochs.')
     parser.add_argument('--momentum', type=float, default=0.9,
                         help='SGD momentum, default is 0.9')
     parser.add_argument('--wd', type=float, default=0.00004,
