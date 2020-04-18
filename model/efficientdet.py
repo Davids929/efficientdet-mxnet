@@ -323,13 +323,13 @@ def get_efficientdet(model_name, classes, act_type='swish',
                      pretrained=False, pretrained_base=False, ctx=mx.cpu(),
                      root=os.path.join('~', '.mxnet', 'models'), **kwargs):
     
-    model_config = efficientdet_params(model_name, act_type=act_type)
+    model_config = efficientdet_params(model_name)
     backbone_name, base_size, fpn_c, num_fpn, box_cls_repeat, anchor_scales = model_config
     ratios  = [(1.0, 1.0), (1.4, 0.7), (0.7, 1.4)]
     scales  = [anchor_scales*i for i in [2**0, 2**(1/3), 2**(2/3)]]
     steps   = [8, 16, 32, 64, 128]
     
-    base_net     = get_efficientnet(backbone_name)
+    base_net     = get_efficientnet(backbone_name, , act_type=act_type)
     if pretrained_base:
         base_net.load_parameters(os.path.join(root, backbone_name + 'params'), ctx=ctx)
     
