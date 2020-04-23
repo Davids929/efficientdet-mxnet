@@ -161,7 +161,8 @@ class EfficientNet(nn.HybridBlock):
             with self.head.name_scope():
                 _add_conv(self.head,
                           last_channels,
-                          active=False, 
+                          active=True, 
+                          act_type=act_type,
                           norm_layer=norm_layer, norm_kwargs=norm_kwargs)
 
             self.output = nn.HybridSequential(prefix='output_')
