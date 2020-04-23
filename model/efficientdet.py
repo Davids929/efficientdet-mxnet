@@ -347,5 +347,5 @@ def efficientdet_b1_coco(pretrained_base=False, pretrained=False, **kwargs):
             
     from gluoncv.data import COCODetection
     classes = COCODetection.CLASSES
-    net     = get_efficientdet('efficientdet-b1', classes, **kwargs)
+    net     = get_efficientdet('efficientdet-d1', classes, **kwargs)
     return net
