@@ -2,11 +2,13 @@
 import mxnet as mx
 import mxnet.gluon.nn as nn
 from gluoncv.nn import ReLU6, HardSigmoid, HardSwish
-import numpy as np
 import math
 
-def make_divisible(x, divisible_by=8):
-    return int(np.ceil(x * 1. / divisible_by) * divisible_by)
+def make_divisible(filters, divisor=8):
+    new_filters = int(filters + divisor / 2) // divisor * divisor
+    if new_filters < 0.9 * filters:  # prevent rounding by more than 10%
+        new_filters += divisor
+    return int(new_filters)
 
 class Activation(nn.HybridBlock):
     """Activation function used in MobileNetV3"""
@@ -85,12 +87,17 @@ class LinearBottleneck(nn.HybridBlock):
         for :class:`mxnet.gluon.contrib.nn.SyncBatchNorm`.
     """
 
-    def __init__(self, in_channels, channels, t, ksize, stride, use_se=True, 
+    def __init__(self, in_channels, channels, t, ksize, stride, use_se=True, dropout_connect_rate=0.2,
                  act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(LinearBottleneck, self).__init__(**kwargs)
         self.use_shortcut = stride == 1 and in_channels == channels
         pad = ksize//2
+        
         with self.name_scope():
+            if dropout_connect_rate>0 and dropout_connect_rate<1:
+                self.dropout = nn.Dropout(dropout_connect_rate, axes=(1,2,3))
+            else:
+                self.dropout = None
             self.out = nn.HybridSequential()
             if t != 1:
                 _add_conv(self.out,
@@ -115,6 +122,8 @@ class LinearBottleneck(nn.HybridBlock):
     def hybrid_forward(self, F, x):
         out = self.out(x)
         if self.use_shortcut:
+            if self.dropout is not None:
+                out = self.dropout(out)
             out = F.elemwise_add(out, x)
         return out
 
@@ -124,7 +133,7 @@ class EfficientNet(nn.HybridBlock):
     <https://arxiv.org/abs/1905.11946>`_ paper.
 
     """
-    def __init__(self, w_multiplier=1.0, d_multiplier=1.0, dropout=1.0, classes=1000, 
+    def __init__(self, w_multiplier=1.0, d_multiplier=1.0, dropout_connect=0.2, dropout=0.2, classes=1000, 
                  use_se=True, act_type='swish', norm_layer=nn.BatchNorm, norm_kwargs=None, **kwargs):
         super(EfficientNet, self).__init__(**kwargs)
         with self.name_scope():
@@ -150,6 +159,7 @@ class EfficientNet(nn.HybridBlock):
                                                ksize=k,
                                                stride=s,
                                                use_se=use_se,
+                                               dropout_connect_rate=dropout_connect,
                                                act_type=act_type,
                                                norm_layer=norm_layer,
                                                norm_kwargs=norm_kwargs))
@@ -199,7 +209,8 @@ def get_efficientnet(model_name, pretrained=False, ctx=mx.cpu(),
                      root='~/.mxnet/models', norm_layer=nn.BatchNorm, 
                      norm_kwargs=None, **kwargs):
     width, depth, res, dropout = efficientnet_params(model_name)
-    net = EfficientNet(width, depth, dropout, norm_layer=norm_layer, norm_kwargs=norm_kwargs, **kwargs)
+    net = EfficientNet(width, depth, dropout=dropout, 
+                       norm_layer=norm_layer, norm_kwargs=norm_kwargs, **kwargs)
     if pretrained:
         from gluoncv.model_zoo.model_store import get_model_file
         net.load_parameters(get_model_file(model_name, tag=pretrained, root=root), ctx=ctx)

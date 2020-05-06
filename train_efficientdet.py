@@ -152,7 +152,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
     best_map = [0]
 
     for epoch in range(args.start_epoch, args.epochs):
-        logger.info("[Epoch {}] Set learning rate to {}".format(epoch, trainer.learning_rate)))
+        logger.info("[Epoch {}] Set learning rate to {}".format(epoch, trainer.learning_rate))
         ce_metric.reset()
         smoothl1_metric.reset()
         tic = time.time()
