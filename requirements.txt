@@ -1,4 +1,4 @@
 opencv-python
-numpy
+numpy==1.16
 mxnet==1.5
 gluoncv==0.6.0

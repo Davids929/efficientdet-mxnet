@@ -151,7 +151,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
     logger.info('Start training from [Epoch {}]'.format(args.start_epoch))
     best_map = [0]
 
-    for epoch in range(args.start_epoch, args.epochs):
+    for epoch in range(args.start_epoch+1, args.epochs+1):
         logger.info("[Epoch {}] Set learning rate to {}".format(epoch, trainer.learning_rate))
         ce_metric.reset()
         smoothl1_metric.reset()
