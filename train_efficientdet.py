@@ -157,7 +157,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
         smoothl1_metric.reset()
         tic = time.time()
         btic = time.time()
-
+        net.hybridize()
         for i, batch in enumerate(train_data):
             data = gluon.utils.split_and_load(batch[0], ctx_list=ctx, batch_axis=0)
             cls_targets = gluon.utils.split_and_load(batch[1], ctx_list=ctx, batch_axis=0)
@@ -241,12 +241,12 @@ if __name__ == '__main__':
                                pretrained_base=False, norm_layer=gluon.nn.BatchNorm)
         async_net = net
 
+    net.initialize(init=mx.init.Xavier(), ctx=ctx)
+    async_net.initialize(init=mx.init.Xavier(), ctx=ctx)
     if args.resume.strip():
         net.load_parameters(args.resume.strip(), ctx=ctx)
         async_net.load_parameters(args.resume.strip(), ctx=ctx)
-    else:
-        net.initialize(init=mx.init.Xavier(), ctx=ctx)
-        async_net.initialize(init=mx.init.Xavier(), ctx=ctx)
+            
     net.hybridize()
 
     train_dataset, val_dataset, eval_metric = get_dataset(args.dataset, args)
