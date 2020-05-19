@@ -37,7 +37,7 @@ class EfficientDetLoss(gluon.Block):
             cls_losses = [nd.sum(cp * 0) for cp in cls_pred]
             box_losses = [nd.sum(bp * 0) for bp in box_pred]
             sum_losses = [nd.sum(cp * 0) + nd.sum(bp * 0) for cp, bp in zip(cls_pred, box_pred)]
-            return cls_losses, box_losses, sum_losses
+            return sum_losses, cls_losses, box_losses
         
         cls_losses = []
         box_losses = []
