@@ -50,12 +50,12 @@ def get_dataset(dataset, args):
         args.num_samples = len(train_dataset)
     return train_dataset, val_dataset, val_metric
 
-def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_workers, ctx):
+def get_dataloader(net, train_dataset, val_dataset, data_shape, batch_size, num_workers):
     """Get dataloader."""
     width, height = data_shape, data_shape
     # use fake data to generate fixed anchors for target generation
     with autograd.train_mode():
-        _, _, anchors = net(mx.nd.zeros((1, 3, height, width), ctx))
+        _, _, anchors = net(mx.nd.zeros((1, 3, height, width)))
     anchors = anchors.as_in_context(mx.cpu())
     batchify_fn = Tuple(Stack(), Stack(), Stack())  # stack image, cls_targets, box_targets
     train_loader = gluon.data.DataLoader(
@@ -170,7 +170,7 @@ def train(net, train_data, val_data, eval_metric, ctx, args):
                     cls_pred, box_pred, _ = net(x)
                     cls_preds.append(cls_pred)
                     box_preds.append(box_pred)
-                cls_loss, box_loss, sum_loss = cls_box_loss(cls_preds, box_preds, cls_targets, box_targets)
+                sum_loss, cls_loss, box_loss = cls_box_loss(cls_preds, box_preds, cls_targets, box_targets)
                 if args.amp:
                     with amp.scale_loss(sum_loss, trainer) as scaled_loss:
                         autograd.backward(scaled_loss)
@@ -241,18 +241,18 @@ if __name__ == '__main__':
                                pretrained_base=False, norm_layer=gluon.nn.BatchNorm)
         async_net = net
 
-    net.initialize(init=mx.init.Xavier(), ctx=ctx)
-    async_net.initialize(init=mx.init.Xavier(), ctx=ctx)
+    net.initialize()
+    async_net.initialize()
     if args.resume.strip():
-        net.load_parameters(args.resume.strip(), ctx=ctx)
-        async_net.load_parameters(args.resume.strip(), ctx=ctx)
+        net.load_parameters(args.resume.strip())
+        async_net.load_parameters(args.resume.strip())
             
     net.hybridize()
 
     train_dataset, val_dataset, eval_metric = get_dataset(args.dataset, args)
     batch_size =  args.batch_size
     train_data, val_data = get_dataloader(
-        async_net, train_dataset, val_dataset, args.data_shape, batch_size, args.num_workers, ctx[0])
+        async_net, train_dataset, val_dataset, args.data_shape, batch_size, args.num_workers)
     
     # training
     train(net, train_data, val_data, eval_metric, ctx, args)

@@ -299,7 +299,7 @@ class EfficientDet(nn.HybridBlock):
         scores = F.slice_axis(result, axis=2, begin=1, end=2)
         bboxes = F.slice_axis(result, axis=2, begin=2, end=6)
         return ids, scores, bboxes
-        
+
 
 def efficientdet_params(model_name):
     """ Map EfficientNet model name to parameter coefficients. """
@@ -331,7 +331,7 @@ def get_efficientdet(model_name, classes, act_type='swish',
     
     base_net     = get_efficientnet(backbone_name, act_type=act_type)
     if pretrained_base:
-        base_net.load_parameters(os.path.join(root, backbone_name + 'params'), ctx=ctx)
+        base_net.load_parameters(os.path.join(root, backbone_name + '.params'), ctx=ctx)
     
     stages = [base_net.features[:6], base_net.features[6:8], base_net.features[8:10]]
     
@@ -339,7 +339,7 @@ def get_efficientdet(model_name, classes, act_type='swish',
                        fpn_channel=fpn_c, fpn_repeat=num_fpn, act_type=act_type,
                        box_cls_repeat=box_cls_repeat, **kwargs)
     if pretrained:
-        net.load_parameters(os.path.join(root, model_name + 'params'), ctx=ctx)
+        net.load_parameters(os.path.join(root, model_name + '.params'), ctx=ctx)
 
     return net
 

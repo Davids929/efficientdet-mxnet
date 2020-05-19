@@ -3,7 +3,7 @@
 import mxnet as mx
 from mxnet import gluon, nd
 from gluoncv.loss import FocalLoss
-from mxnet.gluon.loss import HuberLoss
+# from mxnet.gluon.loss import HuberLoss
 
 def _as_list(arr):
     """Make sure input is a list of mxnet NDArray"""
@@ -45,7 +45,7 @@ class EfficientDetLoss(gluon.Block):
         for cp, bp, ct, bt in zip(*[cls_pred, box_pred, cls_target, box_target]):
             pos = ct > 0
             cls_loss = self.focal_loss(cp, ct)
-            cls_losses.append(nd.sum(cls_loss, axis=0, exclude=True) / max(1., num_pos_all))
+            cls_losses.append(cls_loss/ max(1., num_pos_all))
 
             bp = nd.reshape_like(bp, bt)
             box_loss = nd.abs(bp - bt)
@@ -56,4 +56,4 @@ class EfficientDetLoss(gluon.Block):
             box_losses.append(nd.sum(box_loss, axis=0, exclude=True) / max(1., num_pos_all))
             sum_losses.append(cls_losses[-1] + self._lambd * box_losses[-1])
 
-        return cls_losses, box_losses, sum_losses
+        return sum_losses,cls_losses, box_losses
